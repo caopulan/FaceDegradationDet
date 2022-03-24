@@ -39,7 +39,9 @@ def get_dataset_opt():
 def main():
     epochs = 100
     batch_size = 16
+    save_dir = 'models'
 
+    os.makedirs(save_dir, exist_ok=True)
     dataset_opt = get_dataset_opt()
     hq_dataset = FFHQDegradationDataset(dataset_opt, False)
     lq_dataset = FFHQDegradationDataset(dataset_opt, True)
@@ -66,7 +68,7 @@ def main():
 
             acc = (targets == (output > 0.5)).sum().item() / (hq_data.shape[0] + lq_data.shape[0])
             print(epoch, iter, acc, loss.item())
-            torch.save(model.state_dict(), 'model.pth')
+            torch.save(model.state_dict(), f'[Epoch_{epoch}]iters_{iter}_acc{acc}_loss{loss.item:.6f}.pth')
 
 if __name__ == '__main__':
     main()
