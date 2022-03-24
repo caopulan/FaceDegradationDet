@@ -94,6 +94,7 @@ class FFHQDegradationDataset(data.Dataset):
         # Shape: (h, w, c); channel order: BGR; image range: [0, 1], float32.
         gt_path = self.paths[index]
         img_gt = cv2.imread(gt_path)
+
         img_gt = cv2.resize(img_gt, (self.base_size, self.base_size))
         img_gt = img_gt.astype(np.float32)
         img_gt = img_gt / 255.
@@ -112,12 +113,16 @@ class FFHQDegradationDataset(data.Dataset):
             self.blur_sigma, [-math.pi, math.pi],
             noise_range=None)
         img_lq = cv2.filter2D(img_gt, -1, kernel)
+
         # downsample
         scale = np.random.uniform(self.downsample_range[0], self.downsample_range[1])
         img_lq = cv2.resize(img_lq, (int(w // scale), int(h // scale)), interpolation=cv2.INTER_LINEAR)
+        print(img_lq.shape, img_lq.min(), img_lq.max())
         # noise
         if self.noise_range is not None:
             img_lq = degradations.random_add_gaussian_noise(img_lq, self.noise_range)
+        print(img_lq.shape, img_lq.min(), img_lq.max())
+        # return img_gt, img_lq
         # jpeg compression
         if self.jpeg_range is not None and False:
             img_lq = degradations.random_add_jpg_compression(img_lq, self.jpeg_range)
@@ -136,28 +141,15 @@ class FFHQDegradationDataset(data.Dataset):
                 img_gt = cv2.cvtColor(img_gt, cv2.COLOR_BGR2GRAY)
                 img_gt = np.tile(img_gt[:, :, None], [1, 1, 3])  # repeat the color channels
 
-        # BGR to RGB, HWC to CHW, numpy to tensor
-        img_gt, img_lq = img2tensor([img_gt, img_lq], bgr2rgb=True, float32=True)
+        print(img_lq.shape, img_lq.min(), img_lq.max())
+        # img_lq = (img_lq * 255.).astype(np.int8)
+        # img_lq[img_lq] >
 
-        # random color jitter (pytorch version) (only for lq)
-        if self.color_jitter_pt_prob is not None and (np.random.uniform() < self.color_jitter_pt_prob):
-            brightness = self.opt.get('brightness', (0.5, 1.5))
-            contrast = self.opt.get('contrast', (0.5, 1.5))
-            saturation = self.opt.get('saturation', (0, 1.5))
-            hue = self.opt.get('hue', (-0.1, 0.1))
-            img_lq = self.color_jitter_pt(img_lq, brightness, contrast, saturation, hue)
+        img_gt = (img_gt * 255.0) # .astype(np.int8)
+        img_lq = (img_lq * 255.0) # .astype(np.int8)
+        print(img_lq.shape, img_lq.min(), img_lq.max())
 
-        # round and clip
-        img_lq = torch.clamp((img_lq * 255.0).round(), 0, 255) / 255.
-
-        # normalize
-        normalize(img_gt, self.mean, self.std, inplace=True)
-        normalize(img_lq, self.mean, self.std, inplace=True)
-
-        if self.degradation:
-            return img_lq
-        else:
-            return img_gt
+        return img_gt, img_lq
         # return {'lq': img_lq, 'gt': img_gt, 'gt_path': gt_path}
 
     def __len__(self):
